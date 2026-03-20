@@ -349,12 +349,16 @@ class AlphaProcessor:
         self._zi          = [np.zeros((len(_SOS), 2)) for _ in range(len(CHANNELS))]
         self._ring        = deque(maxlen=self.EPOCH_WIN)  # rolling 2-s buffer
         self._since_last  = 0    # samples accumulated since last epoch was emitted
-        self.values: list[float] = []
+        # Each entry: [O1, O2, T3, T4, AVG]
+        self._ch_values: list[list[float]] = []
+        self.avg_ref = True
 
     def process(self, samples):
         if not samples:
             return
         raw = np.array([[s.O1, s.O2, s.T3, s.T4] for s in samples], dtype=float) * 1e6
+        if self.avg_ref:
+            raw = raw - raw.mean(axis=1, keepdims=True)
         filt = np.empty_like(raw)
         for i in range(len(CHANNELS)):
             filt[:, i], self._zi[i] = sosfilt(_SOS, raw[:, i], zi=self._zi[i])
@@ -368,17 +372,21 @@ class AlphaProcessor:
             self._since_last -= self.EPOCH_STEP
             if len(self._ring) == self.EPOCH_WIN:
                 epoch = np.array(self._ring)   # shape (512, 4)
-                self.values.append(self._relative_alpha(epoch))
+                self._ch_values.append(self._per_channel_alpha(epoch))
 
-    def _relative_alpha(self, epoch: np.ndarray) -> float:
-        rel = []
+    def _per_channel_alpha(self, epoch: np.ndarray) -> list[float]:
+        """Returns [O1, O2, T3, T4, AVG] relative alpha values for one epoch."""
+        per_ch = []
         for i in range(len(CHANNELS)):
             psd = np.abs(np.fft.rfft(epoch[:, i])) ** 2
             a   = psd[self.ALPHA_LO:self.ALPHA_HI].sum()
             tot = psd[self.TOTAL_LO:self.TOTAL_HI].sum()
-            if tot > 0:
-                rel.append(a / tot)
-        return float(np.mean(rel)) if rel else 0.0
+            per_ch.append(float(a / tot) if tot > 0 else 0.0)
+        return per_ch + [float(np.mean(per_ch))]  # 5 values
+
+    def values_for(self, ch_idx: int) -> list[float]:
+        """Return the alpha-power time series for channel index 0–3 or 4 for AVG."""
+        return [v[ch_idx] for v in self._ch_values]
 
 
 # ── Scale stepping ────────────────────────────────────────────────────────────
