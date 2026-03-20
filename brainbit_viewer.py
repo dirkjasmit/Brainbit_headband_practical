@@ -102,8 +102,9 @@ class SignalProcessor:
             self._bufs[i].extend(filt.tolist())
 
     def display_data(self):
-        """Return list of 4 numpy arrays, each length DISP_SAMPLES."""
-        return [np.array(b) for b in self._bufs]
+        """Return 5 numpy arrays: O1, O2, T3, T4, and their mean (AVG)."""
+        ch = [np.array(b) for b in self._bufs]
+        return ch + [np.mean(ch, axis=0)]
 
 
 # ── QThread worker (mirrors the example's Worker pattern) ─────────────────────
