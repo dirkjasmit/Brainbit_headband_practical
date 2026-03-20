@@ -636,6 +636,10 @@ class AlphaScreen(QWidget):
 
         root.addWidget(self._pw, stretch=1)
 
+    def _toggle_avg_ref(self, checked: bool):
+        self._proc.avg_ref = checked
+        self._btn_ref.setText(f"Avg Ref: {'ON' if checked else 'OFF'}")
+
     # ── Control ───────────────────────────────────────────────────────────────
     def start(self):
         self._timer.start()
@@ -648,7 +652,7 @@ class AlphaScreen(QWidget):
 
     # ── Rendering ─────────────────────────────────────────────────────────────
     def _refresh(self):
-        vals = self._proc.values
+        vals = self._proc.values_for(self._ch_combo.currentIndex())
         n = len(vals)
         if n == 0:
             return
