@@ -449,7 +449,8 @@ class SignalScreen(QWidget):
         # ── Plots ─────────────────────────────────────────────────────────────
         self._plots:  list[pg.PlotWidget]   = []
         self._curves: list[pg.PlotDataItem] = []
-        for i, ch in enumerate(CHANNELS):
+        row_labels = CHANNELS + ['AVG']
+        for i, ch in enumerate(row_labels):
             pw = pg.PlotWidget()
             pw.setBackground('#1a1a2e')
             pw.showGrid(x=True, y=True, alpha=0.25)
@@ -457,7 +458,7 @@ class SignalScreen(QWidget):
             pw.setYRange(-self._scale, self._scale, padding=0)
             pw.setMouseEnabled(x=False, y=False)
             pw.setLabel('left', ch, units='µV')
-            if i == len(CHANNELS) - 1:
+            if i == len(row_labels) - 1:
                 pw.setLabel('bottom', 'Time', units='s')
             curve = pw.plot(pen=mkPen(PLOT_COLORS[i], width=1.5))
             self._plots.append(pw)
