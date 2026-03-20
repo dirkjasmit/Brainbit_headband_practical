@@ -25,7 +25,7 @@ from scipy.signal import butter, iirnotch, sosfilt, sosfilt_zi, tf2sos
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QPushButton, QStackedWidget, QFrame,
+    QHBoxLayout, QLabel, QPushButton, QStackedWidget, QFrame, QComboBox,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QThread
 from PyQt6.QtGui import QFont
