@@ -575,6 +575,25 @@ class AlphaScreen(QWidget):
         hdr.setFont(QFont("Helvetica", 11, QFont.Weight.Bold))
         top.addWidget(hdr, stretch=1)
 
+        # Channel selector
+        ch_lbl = QLabel("Channel:")
+        ch_lbl.setFont(QFont("Helvetica", 10))
+        top.addWidget(ch_lbl)
+        self._ch_combo = QComboBox()
+        self._ch_combo.addItems(CHANNELS + ['AVG'])
+        self._ch_combo.setCurrentIndex(4)   # default: AVG
+        self._ch_combo.setFixedHeight(32)
+        self._ch_combo.setMinimumWidth(80)
+        top.addWidget(self._ch_combo)
+
+        # Avg-ref toggle (mirrors SignalScreen)
+        self._btn_ref = QPushButton("Avg Ref: ON")
+        self._btn_ref.setFixedHeight(32)
+        self._btn_ref.setCheckable(True)
+        self._btn_ref.setChecked(True)
+        self._btn_ref.clicked.connect(self._toggle_avg_ref)
+        top.addWidget(self._btn_ref)
+
         btn_back = QPushButton("← Raw EEG")
         btn_back.setFixedHeight(32)
         btn_back.clicked.connect(self.go_eeg)
