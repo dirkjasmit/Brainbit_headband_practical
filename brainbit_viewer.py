@@ -48,7 +48,7 @@ NOTCH_FREQ   = 50.0         # Mains notch (Hz); change to 60 if needed
 NOTCH_Q      = 30.0         # Notch quality factor (higher = narrower)
 CHANNELS     = ['O1', 'O2', 'T3', 'T4']
 GOOD_RESIST  = 2_000_000    # Ω threshold: BrainBit reports good contact as > 2 MΩ
-PLOT_COLORS  = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12']
+PLOT_COLORS  = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#ecf0f1']
 
 # ── Filter design (done once at import) ───────────────────────────────────────
 # Bandpass SOS (order 6 → 12-pole system, ~50 dB rejection at 50 Hz)
