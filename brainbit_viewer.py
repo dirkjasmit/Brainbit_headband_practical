@@ -388,19 +388,36 @@ class AlphaProcessor:
                 epoch = np.array(self._ring)   # shape (512, 4)
                 self._ch_values.append(self._per_channel_alpha(epoch))
 
-    def _per_channel_alpha(self, epoch: np.ndarray) -> list[float]:
-        """Returns [O1, O2, T3, T4, AVG] relative alpha values for one epoch."""
+    def _process_epoch(self, epoch: np.ndarray):
+        """Compute per-channel relative alpha and accumulate PSD for one epoch."""
         per_ch = []
         for i in range(len(CHANNELS)):
             psd = np.abs(np.fft.rfft(epoch[:, i])) ** 2
             a   = psd[self.ALPHA_LO:self.ALPHA_HI].sum()
             tot = psd[self.TOTAL_LO:self.TOTAL_HI].sum()
             per_ch.append(float(a / tot) if tot > 0 else 0.0)
-        return per_ch + [float(np.mean(per_ch))]  # 5 values
+            self._psd_sum[i] += psd[self.TOTAL_LO:self.TOTAL_HI]
+        self._ch_values.append(per_ch + [float(np.mean(per_ch))])   # 5 values
+        self._psd_count += 1
 
     def values_for(self, ch_idx: int) -> list[float]:
         """Return the alpha-power time series for channel index 0–3 or 4 for AVG."""
         return [v[ch_idx] for v in self._ch_values]
+
+    def mean_psd(self, ch_idx: int) -> tuple[np.ndarray, np.ndarray]:
+        """Return (freqs_hz, avg_psd_uV2) for ch_idx 0-3 or 4 for all-channel mean."""
+        freqs = np.arange(self.TOTAL_LO, self.TOTAL_HI) * (FS / self.EPOCH_WIN)  # 0.5 Hz/bin
+        if self._psd_count == 0:
+            return freqs, np.zeros(self.TOTAL_HI - self.TOTAL_LO)
+        raw = (self._psd_sum[ch_idx] if ch_idx < len(CHANNELS)
+               else self._psd_sum.mean(axis=0))
+        return freqs, raw / self._psd_count
+
+    def reset(self):
+        """Clear all accumulated alpha values and PSD sums."""
+        self._ch_values.clear()
+        self._psd_sum[:] = 0.0
+        self._psd_count  = 0
 
 
 # ── Scale stepping ────────────────────────────────────────────────────────────
