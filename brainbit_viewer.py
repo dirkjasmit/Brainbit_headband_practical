@@ -765,6 +765,12 @@ class AlphaScreen(QWidget):
         # Convert to dB (clip to avoid log(0))
         psd_db = 10.0 * np.log10(np.clip(psd, 1e-12, None))
 
+        # Smooth: average adjacent 0.5 Hz bin pairs → 1 Hz bins
+        # (3.0+3.5 → 3 Hz, 4.0+4.5 → 4 Hz, …, 29.0+29.5 → 29 Hz; 27 bins)
+        n_pairs    = len(psd_db) // 2
+        psd_plot   = psd_db[:n_pairs * 2].reshape(n_pairs, 2).mean(axis=1)
+        freq_plot  = freqs[:n_pairs * 2:2]   # 3, 4, …, 29 Hz
+
         dlg = QDialog(self)
         dlg.setWindowTitle(f"Avg Power Spectrum — {ch_name}")
         dlg.resize(640, 380)
@@ -776,9 +782,9 @@ class AlphaScreen(QWidget):
         pw.showGrid(x=True, y=True, alpha=0.25)
         pw.setLabel('bottom', 'Frequency', units='Hz')
         pw.setLabel('left', 'Power', units='dB')
-        pw.setXRange(freqs[0], freqs[-1], padding=0.02)
+        pw.setXRange(freq_plot[0], freq_plot[-1], padding=0.02)
         color = PLOT_COLORS[ch_idx % len(PLOT_COLORS)]
-        pw.plot(freqs, psd_db, pen=mkPen(color, width=2))
+        pw.plot(freq_plot, psd_plot, pen=mkPen(color, width=2))
 
         # Mark alpha band (8–13 Hz) with a shaded region
         alpha_region = pg.LinearRegionItem(
