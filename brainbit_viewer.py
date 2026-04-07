@@ -61,44 +61,58 @@ _SOS = np.vstack([_bp_sos, _notch_sos])
 
 
 # ── Signal processor ──────────────────────────────────────────────────────────
+def _build_sos(low: float, high: float) -> np.ndarray:
+    """Design bandpass + 50 Hz notch SOS for the given cutoffs."""
+    bp  = butter(FILT_ORDER, [low, high], btype='bandpass', fs=FS, output='sos')
+    nb, na = iirnotch(NOTCH_FREQ, NOTCH_Q, fs=FS)
+    return np.vstack([bp, tf2sos(nb, na)])
+
+
 class SignalProcessor:
     """
     Stateful per-chunk processor.
 
-    Step 1 – Average re-reference:
-        Each sample vector [O1, O2, T3, T4] is mean-centred across channels.
-
-    Step 2 – 3–30 Hz Butterworth bandpass + 50 Hz IIR notch (causal sosfilt with zi):
-        The two SOS arrays are stacked into one, so a single sosfilt call applies
-        both filters in sequence.  zi carries the joint state between chunks,
-        so there are NO border effects at chunk boundaries.  Cold-start transient
-        is ~330 samples (~1.3 s) only.
+    Startup transient fix: on the first chunk (and after every filter change)
+    zi is initialised via sosfilt_zi × first-sample value, so the filter starts
+    at the steady-state for the DC level of the signal rather than at zero.
+    This eliminates the large deflection at the beginning of recording.
     """
 
     def __init__(self):
-        n = len(CHANNELS)
-        # One zi array per channel; initialised to all-zeros (cold start)
-        self._zi = [np.zeros((len(_SOS), 2)) for _ in range(n)]
-        # Ring buffers pre-filled with zeros so plots start empty-looking
-        self._bufs = [deque([0.0] * DISP_SAMPLES, maxlen=DISP_SAMPLES) for _ in range(n)]
-        self.avg_ref = True   # toggled by SignalScreen button
+        self._sos  = _build_sos(FILT_LOW, FILT_HIGH)
+        self._bufs = [deque([0.0] * DISP_SAMPLES, maxlen=DISP_SAMPLES)
+                      for _ in range(len(CHANNELS))]
+        self.avg_ref = True
+        self._reset_zi()
+
+    def _reset_zi(self):
+        """Zero filter state; next process() call will warm-start it."""
+        self._zi           = [None] * len(CHANNELS)
+        self._need_zi_init = True
+
+    def set_filter(self, low: float, high: float):
+        """Redesign filter and reset state (called from UI thread)."""
+        self._sos = _build_sos(low, high)
+        self._reset_zi()
 
     def process(self, samples):
-        """
-        samples – list of SDK sample objects with .O1 .O2 .T3 .T4 attributes.
-        """
         if not samples:
             return
 
-        # Shape: (N_chunk, 4) — SDK returns values in volts; convert to µV
-        raw = np.array([[s.O1, s.O2, s.T3, s.T4] for s in samples], dtype=float) * 1e6
-
-        # 1. Average re-reference (optional)
+        raw   = np.array([[s.O1, s.O2, s.T3, s.T4] for s in samples], dtype=float) * 1e6
         reref = raw - raw.mean(axis=1, keepdims=True) if self.avg_ref else raw
 
-        # 2. Bandpass filter each channel; update zi in-place
+        # Warm-start: init zi to steady-state for the first sample's amplitude.
+        # sosfilt_zi returns unit step-response state; scale by first sample value
+        # so the filter "thinks" the signal has always been at that level → no transient.
+        if self._need_zi_init:
+            base = sosfilt_zi(self._sos)          # shape (n_sections, 2)
+            for i in range(len(CHANNELS)):
+                self._zi[i] = base * reref[0, i]
+            self._need_zi_init = False
+
         for i in range(len(CHANNELS)):
-            filt, self._zi[i] = sosfilt(_SOS, reref[:, i], zi=self._zi[i])
+            filt, self._zi[i] = sosfilt(self._sos, reref[:, i], zi=self._zi[i])
             self._bufs[i].extend(filt.tolist())
 
     def display_data(self):
