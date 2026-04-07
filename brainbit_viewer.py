@@ -527,11 +527,35 @@ class SignalScreen(QWidget):
             self._curves.append(curve)
             root.addWidget(pw, stretch=1)
 
+    def _update_hdr(self):
+        ref  = "ON" if self._proc.avg_ref else "OFF"
+        self._hdr.setText(
+            f"EEG  |  Avg ref {ref}  |  "
+            f"{self._filt_low:.0f}–{self._filt_high:.0f} Hz + 50 Hz notch  |  5 s window"
+        )
+
     def _toggle_avg_ref(self, checked: bool):
         self._proc.avg_ref = checked
-        state = "ON" if checked else "OFF"
-        self._btn_ref.setText(f"Avg Ref: {state}")
-        self._hdr.setText(f"EEG  |  Avg ref {state}  |  3–30 Hz + 50 Hz notch  |  5 s window")
+        self._btn_ref.setText(f"Avg Ref: {'ON' if checked else 'OFF'}")
+        self._update_hdr()
+
+    def _change_hp(self, delta: int):
+        new = max(1, min(self._filt_low + delta, self._filt_high - 5))
+        if new == self._filt_low:
+            return
+        self._filt_low = float(new)
+        self._hp_lbl.setText(f"{self._filt_low:.0f} Hz")
+        self._proc.set_filter(self._filt_low, self._filt_high)
+        self._update_hdr()
+
+    def _change_lp(self, delta: int):
+        new = max(self._filt_low + 5, min(self._filt_high + delta, 100))
+        if new == self._filt_high:
+            return
+        self._filt_high = float(new)
+        self._lp_lbl.setText(f"{self._filt_high:.0f} Hz")
+        self._proc.set_filter(self._filt_low, self._filt_high)
+        self._update_hdr()
 
     def _set_scale(self, new_scale: int):
         self._scale = new_scale
