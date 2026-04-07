@@ -436,10 +436,13 @@ class SignalScreen(QWidget):
 
         # ── Top bar ───────────────────────────────────────────────────────────
         top = QHBoxLayout()
-        self._hdr = QLabel("EEG  |  Avg ref ON  |  3–30 Hz + 50 Hz notch  |  5 s window")
+        top.setSpacing(4)
+
+        self._hdr = QLabel()
         self._hdr.setFont(QFont("Helvetica", 11, QFont.Weight.Bold))
         top.addWidget(self._hdr, stretch=1)
 
+        # ── Avg-ref toggle ────────────────────────────────────────────────────
         self._btn_ref = QPushButton("Avg Ref: ON")
         self._btn_ref.setFixedHeight(32)
         self._btn_ref.setCheckable(True)
@@ -447,11 +450,45 @@ class SignalScreen(QWidget):
         self._btn_ref.clicked.connect(self._toggle_avg_ref)
         top.addWidget(self._btn_ref)
 
+        # ── High-pass cutoff (low cut) ─────────────────────────────────────
+        top.addWidget(QLabel("HP:"))
+        btn_hp_dn = QPushButton("▼")
+        btn_hp_dn.setFixedSize(26, 26)
+        btn_hp_dn.clicked.connect(lambda: self._change_hp(-1))
+        top.addWidget(btn_hp_dn)
+        self._hp_lbl = QLabel(f"{self._filt_low:.0f} Hz")
+        self._hp_lbl.setFont(QFont("Courier", 10))
+        self._hp_lbl.setMinimumWidth(46)
+        self._hp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        top.addWidget(self._hp_lbl)
+        btn_hp_up = QPushButton("▲")
+        btn_hp_up.setFixedSize(26, 26)
+        btn_hp_up.clicked.connect(lambda: self._change_hp(+1))
+        top.addWidget(btn_hp_up)
+
+        # ── Low-pass cutoff (high cut) ─────────────────────────────────────
+        top.addWidget(QLabel("LP:"))
+        btn_lp_dn = QPushButton("▼")
+        btn_lp_dn.setFixedSize(26, 26)
+        btn_lp_dn.clicked.connect(lambda: self._change_lp(-5))
+        top.addWidget(btn_lp_dn)
+        self._lp_lbl = QLabel(f"{self._filt_high:.0f} Hz")
+        self._lp_lbl.setFont(QFont("Courier", 10))
+        self._lp_lbl.setMinimumWidth(46)
+        self._lp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        top.addWidget(self._lp_lbl)
+        btn_lp_up = QPushButton("▲")
+        btn_lp_up.setFixedSize(26, 26)
+        btn_lp_up.clicked.connect(lambda: self._change_lp(+5))
+        top.addWidget(btn_lp_up)
+
+        # ── Alpha screen button ───────────────────────────────────────────
         btn_alpha = QPushButton("Alpha Power →")
         btn_alpha.setFixedHeight(32)
         btn_alpha.clicked.connect(self.go_alpha)
         top.addWidget(btn_alpha)
 
+        # ── Scale buttons ─────────────────────────────────────────────────
         btn_dn = QPushButton("▼")
         btn_dn.setFixedSize(32, 32)
         btn_dn.clicked.connect(lambda: self._set_scale(_step_scale(self._scale, -1)))
@@ -469,6 +506,7 @@ class SignalScreen(QWidget):
         top.addWidget(btn_up)
 
         root.addLayout(top)
+        self._update_hdr()
 
         # ── Plots ─────────────────────────────────────────────────────────────
         self._plots:  list[pg.PlotWidget]   = []
