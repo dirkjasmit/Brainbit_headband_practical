@@ -419,12 +419,14 @@ class SignalScreen(QWidget):
 
     def __init__(self):
         super().__init__()
-        self._proc   = SignalProcessor()
-        self._timer  = QTimer()
+        self._proc      = SignalProcessor()
+        self._timer     = QTimer()
         self._timer.setInterval(UPDATE_MS)
         self._timer.timeout.connect(self._refresh)
-        self._t_axis = np.linspace(0.0, DISP_SEC, DISP_SAMPLES)
-        self._scale  = 50          # µV half-range
+        self._t_axis    = np.linspace(0.0, DISP_SEC, DISP_SAMPLES)
+        self._scale     = 50          # µV half-range
+        self._filt_low  = FILT_LOW    # Hz
+        self._filt_high = FILT_HIGH   # Hz
         self._build_ui()
 
     def _build_ui(self):
