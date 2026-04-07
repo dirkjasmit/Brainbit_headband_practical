@@ -757,24 +757,13 @@ class AlphaScreen(QWidget):
         self._peak_lbl.setText("Peak LOESS: —")
 
     def _show_spectrum(self):
-        """Open a popup with the average power spectrum (3–30 Hz) for the selected channel.
-
-        Processing before display:
-          1. Pair-average adjacent 0.5 Hz bins into 1 Hz bins
-             (3+3.5 → 3 Hz, 4+4.5 → 4 Hz, … 29+29.5 → 29 Hz; 27 bins total).
-          2. Convert to dB: 10 × log10(power), floored at –60 dB.
-        """
+        """Open a popup with the average power spectrum (3–30 Hz) for the selected channel."""
         ch_idx  = self._ch_combo.currentIndex()
         ch_name = (CHANNELS + ['AVG'])[ch_idx]
         freqs, psd = self._proc.mean_psd(ch_idx)
 
-        # 1. Pair-average 0.5 Hz bins → 1 Hz bins (use first 54 of 55 bins → 27 pairs)
-        n_pairs  = len(psd) // 2                          # 27
-        psd_1hz  = psd[:n_pairs * 2].reshape(n_pairs, 2).mean(axis=1)
-        freq_1hz = freqs[:n_pairs * 2:2]                  # 3, 4, …, 29 Hz
-
-        # 2. Convert to dB (clip to avoid log(0))
-        psd_db = 10.0 * np.log10(np.clip(psd_1hz, 1e-12, None))
+        # Convert to dB (clip to avoid log(0))
+        psd_db = 10.0 * np.log10(np.clip(psd, 1e-12, None))
 
         dlg = QDialog(self)
         dlg.setWindowTitle(f"Avg Power Spectrum — {ch_name}")
@@ -787,9 +776,9 @@ class AlphaScreen(QWidget):
         pw.showGrid(x=True, y=True, alpha=0.25)
         pw.setLabel('bottom', 'Frequency', units='Hz')
         pw.setLabel('left', 'Power', units='dB')
-        pw.setXRange(freq_1hz[0], freq_1hz[-1], padding=0.02)
+        pw.setXRange(freqs[0], freqs[-1], padding=0.02)
         color = PLOT_COLORS[ch_idx % len(PLOT_COLORS)]
-        pw.plot(freq_1hz, psd_db, pen=mkPen(color, width=2))
+        pw.plot(freqs, psd_db, pen=mkPen(color, width=2))
 
         # Mark alpha band (8–13 Hz) with a shaded region
         alpha_region = pg.LinearRegionItem(
