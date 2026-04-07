@@ -365,7 +365,10 @@ class AlphaProcessor:
         self._since_last  = 0    # samples accumulated since last epoch was emitted
         # Each entry: [O1, O2, T3, T4, AVG]
         self._ch_values: list[list[float]] = []
-        self.avg_ref = True
+        self.avg_ref      = True
+        n_bins            = self.TOTAL_HI - self.TOTAL_LO   # 55 bins
+        self._psd_sum     = np.zeros((len(CHANNELS), n_bins))
+        self._psd_count   = 0
 
     def process(self, samples):
         if not samples:
@@ -385,8 +388,7 @@ class AlphaProcessor:
         while self._since_last >= self.EPOCH_STEP:
             self._since_last -= self.EPOCH_STEP
             if len(self._ring) == self.EPOCH_WIN:
-                epoch = np.array(self._ring)   # shape (512, 4)
-                self._ch_values.append(self._per_channel_alpha(epoch))
+                self._process_epoch(np.array(self._ring))   # shape (512, 4)
 
     def _process_epoch(self, epoch: np.ndarray):
         """Compute per-channel relative alpha and accumulate PSD for one epoch."""
