@@ -691,6 +691,16 @@ class AlphaScreen(QWidget):
         self._btn_ref.clicked.connect(self._toggle_avg_ref)
         top.addWidget(self._btn_ref)
 
+        btn_reset = QPushButton("Reset")
+        btn_reset.setFixedHeight(32)
+        btn_reset.clicked.connect(self._reset)
+        top.addWidget(btn_reset)
+
+        btn_spec = QPushButton("Show Spectrum")
+        btn_spec.setFixedHeight(32)
+        btn_spec.clicked.connect(self._show_spectrum)
+        top.addWidget(btn_spec)
+
         btn_back = QPushButton("← Raw EEG")
         btn_back.setFixedHeight(32)
         btn_back.clicked.connect(self.go_eeg)
