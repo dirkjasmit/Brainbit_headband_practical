@@ -747,6 +747,50 @@ class AlphaScreen(QWidget):
         self._proc.avg_ref = checked
         self._btn_ref.setText(f"Avg Ref: {'ON' if checked else 'OFF'}")
 
+    def _reset(self):
+        """Clear the running alpha plot and all accumulated PSD data."""
+        self._proc.reset()
+        self._dot_line.setData([], [])
+        self._scatter.setData([], [])
+        self._loess_curve.setData([], [])
+        self._peak_line.setVisible(False)
+        self._peak_lbl.setText("Peak LOESS: —")
+
+    def _show_spectrum(self):
+        """Open a popup with the average power spectrum (3–30 Hz) for the selected channel."""
+        ch_idx  = self._ch_combo.currentIndex()
+        ch_name = (CHANNELS + ['AVG'])[ch_idx]
+        freqs, psd = self._proc.mean_psd(ch_idx)
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Avg Power Spectrum — {ch_name}")
+        dlg.resize(640, 380)
+        dlg.setStyleSheet("background: #1a1a2e;")
+        layout = QVBoxLayout(dlg)
+
+        pw = pg.PlotWidget()
+        pw.setBackground('#1a1a2e')
+        pw.showGrid(x=True, y=True, alpha=0.25)
+        pw.setLabel('bottom', 'Frequency', units='Hz')
+        pw.setLabel('left', 'Power', units='µV²')
+        pw.setXRange(freqs[0], freqs[-1], padding=0.02)
+        color = PLOT_COLORS[ch_idx % len(PLOT_COLORS)]
+        pw.plot(freqs, psd, pen=mkPen(color, width=2))
+
+        # Mark alpha band (8–13 Hz) with a shaded region
+        alpha_region = pg.LinearRegionItem(
+            values=(8, 13), movable=False,
+            brush=pg.mkBrush(255, 255, 100, 35),
+            pen=pg.mkPen(None),
+        )
+        pw.addItem(alpha_region)
+
+        layout.addWidget(QLabel(
+            f"  Channel: {ch_name}   |   epochs averaged: {self._proc._psd_count}",
+        ))
+        layout.addWidget(pw, stretch=1)
+        dlg.exec()
+
     # ── Control ───────────────────────────────────────────────────────────────
     def start(self):
         self._timer.start()
