@@ -583,6 +583,14 @@ class SignalScreen(QWidget):
         self._proc.set_filter(self._filt_low, self._filt_high)
         self._update_hdr()
 
+    def _toggle_pause(self, checked: bool):
+        if checked:
+            self._timer.stop()
+            self._btn_pause.setText("▶ Resume")
+        else:
+            self._timer.start()
+            self._btn_pause.setText("⏸ Pause")
+
     def _set_scale(self, new_scale: int):
         self._scale = new_scale
         self._scale_lbl.setText(f"±{self._scale} µV")
