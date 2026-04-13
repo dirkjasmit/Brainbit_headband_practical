@@ -41,7 +41,7 @@ FS           = 256          # Device sampling rate (Hz)
 DISP_SEC     = 5            # Seconds of signal shown in plots
 DISP_SAMPLES = FS * DISP_SEC  # 1 280 samples
 UPDATE_MS    = 1_000        # Plot refresh interval (ms)
-FILT_ORDER   = 4            # Butterworth bandpass order; reduced from 6 to shorten transient ringing on startup artifacts
+FILT_ORDER   = 4            # Butterworth bandpass order; 4 → 8-pole system, shorter transient than order 6
 STARTUP_MUTE = 2 * FS      # samples to run filter silently before showing display (512 = 2 s)
 FILT_LOW     = 3.0          # Bandpass low cut (Hz)
 FILT_HIGH    = 30.0         # Bandpass high cut (Hz)
