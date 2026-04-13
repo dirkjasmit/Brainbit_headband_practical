@@ -90,6 +90,7 @@ class SignalProcessor:
         """Zero filter state; next process() call will warm-start it."""
         self._zi           = [None] * len(CHANNELS)
         self._need_zi_init = True
+        self._mute_left    = STARTUP_MUTE   # samples left to run silently
 
     def set_filter(self, low: float, high: float):
         """Redesign filter and reset state (called from UI thread)."""
@@ -103,18 +104,27 @@ class SignalProcessor:
         raw   = np.array([[s.O1, s.O2, s.T3, s.T4] for s in samples], dtype=float) * 1e6
         reref = raw - raw.mean(axis=1, keepdims=True) if self.avg_ref else raw
 
-        # Warm-start: init zi to steady-state for the first sample's amplitude.
-        # sosfilt_zi returns unit step-response state; scale by first sample value
-        # so the filter "thinks" the signal has always been at that level → no transient.
+        # Warm-start: init zi using the median of the first chunk rather than the
+        # first sample, so a single spike doesn't blow up the initial filter state.
         if self._need_zi_init:
-            base = sosfilt_zi(self._sos)          # shape (n_sections, 2)
+            base = sosfilt_zi(self._sos)
+            med  = np.median(reref, axis=0)
             for i in range(len(CHANNELS)):
-                self._zi[i] = base * reref[0, i]
+                self._zi[i] = base * med[i]
             self._need_zi_init = False
 
         for i in range(len(CHANNELS)):
             filt, self._zi[i] = sosfilt(self._sos, reref[:, i], zi=self._zi[i])
-            self._bufs[i].extend(filt.tolist())
+            if self._mute_left > 0:
+                # Filter runs to build up state, but we push zeros to the display
+                # buffer so startup artifacts never appear on screen.
+                n = min(len(filt), self._mute_left)
+                self._bufs[i].extend([0.0] * len(filt))
+            else:
+                self._bufs[i].extend(filt.tolist())
+
+        if self._mute_left > 0:
+            self._mute_left = max(0, self._mute_left - len(reref))
 
     def display_data(self):
         """Return 5 numpy arrays: O1, O2, T3, T4, and their mean (AVG)."""
