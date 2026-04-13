@@ -501,6 +501,13 @@ class SignalScreen(QWidget):
         btn_lp_up.clicked.connect(lambda: self._change_lp(+5))
         top.addWidget(btn_lp_up)
 
+        # ── Pause / Resume button ─────────────────────────────────────────
+        self._btn_pause = QPushButton("⏸ Pause")
+        self._btn_pause.setFixedHeight(32)
+        self._btn_pause.setCheckable(True)
+        self._btn_pause.clicked.connect(self._toggle_pause)
+        top.addWidget(self._btn_pause)
+
         # ── Alpha screen button ───────────────────────────────────────────
         btn_alpha = QPushButton("Alpha Power →")
         btn_alpha.setFixedHeight(32)
