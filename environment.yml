@@ -1,0 +1,20 @@
+name: brainbit_311
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11.13
+  - numpy=2.4.2
+  - scipy=1.17.0
+  - pip
+  - pip:
+    - PyQt6==6.10.2
+    - PyQt6-Qt6==6.10.2
+    - PyQt6_sip==13.11.0
+    - pyqtgraph==0.14.0
+    - pillow==12.1.1
+    - qrcode==8.2
+    - pyneurosdk2==1.0.15
+    - pyem_st_artifacts==1.0.7
+    - pyspectrum_lib==1.0.2
+    - supabase          # required for brainbit_stream.py — not yet installed
