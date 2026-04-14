@@ -1,67 +1,152 @@
-# BrainBit EEG Viewer — Project Context
+# BrainBit EEG Viewer & Streamer
 
-## Project
-Single-file automated EEG viewer for the BrainBit headband.
+A Python desktop application for the [BrainBit](https://brainbit.com) EEG headband.  
+Visualises live EEG on your desktop **and** streams it to any mobile phone via a web browser — no app install required.
 
-- **Main script:** `/Users/dirksmit/dev/Brainbit_headband_practical/brainbit_viewer.py`
-- **Reference/example code:** `/Users/dirksmit/dev/neurosamples-main-python/python/BrainBitDemo/`
-- **Conda environment** contains: `pyneurosdk2`, `PyQt6`, `pyqtgraph`, `scipy`, `pyem-st-artifacts`, `pyspectrum-lib`
+---
 
-## Device
-- **Device:** BrainBit EEG headband (BLE)
-- **Sampling rate:** 256 Hz (not 250 — filter design must use `fs=256`)
-- **Channels:** O1, O2, T3, T4
-- **Signal units:** volts (raw SDK output). Multiply by `1e6` to display in µV.
-- **Sensor families to scan:** `SensorFamily.LEBrainBit`, `SensorFamily.LECallibri`
+## Installation (macOS)
 
-## Impedance
-- The SDK `resistDataReceived` callback provides `.O1 .O2 .T3 .T4` in ohms.
-- **Good contact = value > 2,000,000 Ω AND not infinity** (dry-electrode BrainBit protocol — this is the opposite of typical wet-electrode EEG where low impedance = good).
-- Poor contact = value ≤ 2,000,000 Ω or infinity.
+### 1. Install prerequisites
 
-## neurosdk API — critical details
-- **Correct command method:** `sensor.exec_command(SensorCommand.X)` — NOT `execute_command`.
-- **Scanner must run in its own thread:** `Thread(target=scanner.start, daemon=True).start()`.
-- **`create_sensor()` blocks** until the device responds. Run it in a `QThread + Worker`. After it returns, emit `connected` immediately — do NOT rely on `sensorStateChanged` for initial connection (the event fires during `create_sensor`, before you can attach the callback).
-- **`sensorStateChanged`** is only useful for detecting subsequent disconnects.
-- Commands (StartResist, StopResist, StartSignal, StopSignal) must also run in background threads.
+If you don't have them yet:
 
-## Signal processing pipeline
-1. **V → µV:** multiply raw array by `1e6`
-2. **Average re-reference:** subtract per-sample mean across all 4 channels
-3. **3–30 Hz Butterworth bandpass** (order 6) + **50 Hz IIR notch** (Q=30), implemented as a single stacked SOS array
-4. **Causal `sosfilt` with maintained `zi`** — filter state carried between SDK chunks, so no border effects at chunk boundaries. Only a cold-start transient (~330 samples, ~1.3 s).
+```bash
+# Homebrew (macOS package manager)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-```python
-from scipy.signal import butter, iirnotch, sosfilt, tf2sos
-import numpy as np
+# Git
+brew install git
 
-FS = 256
-bp_sos      = butter(6, [3.0, 30.0], btype='bandpass', fs=FS, output='sos')
-nb, na      = iirnotch(50.0, 30.0, fs=FS)
-notch_sos   = tf2sos(nb, na)
-SOS         = np.vstack([bp_sos, notch_sos])   # 7 sections total
-
-# Per channel, maintain zi = np.zeros((len(SOS), 2))
-filtered, zi[ch] = sosfilt(SOS, chunk, zi=zi[ch])
+# Miniconda (Python environment manager)
+brew install --cask miniconda
 ```
 
-## Display
-- **Window:** 5 seconds × 256 Hz = 1280 samples ring buffer per channel
-- **Refresh:** every 1 second via `QTimer`
-- **Y-axis:** fixed scale ±N µV (no autoscale), default ±50 µV
-- Scale buttons ▼/▲ with variable step: 5 µV below 50, 10 µV at 50–100, 20 µV above 100; min 10, max 500
+### 2. Clone the repository
 
-## Thread safety
-All `neurosdk` callbacks fire on background threads. Only emit PyQt signals from them (never touch Qt widgets directly). Qt auto-queues cross-thread signals to the main thread.
+```bash
+git clone https://github.com/dirkjasmit/Brainbit_headband_practical.git
+cd Brainbit_headband_practical
+```
 
-## Application flow
-1. Launch → auto-scan (no button needed)
-2. **Screen 1 (ImpedanceScreen):** shows live O1/O2/T3/T4 impedances; "Start EEG" button enabled after `StateInRange`
-3. **Screen 2 (SignalScreen):** filtered 4-channel EEG with scale controls
+### 3. Run the setup script
 
-## Known working patterns from the reference example
-- `brain_bit_controller.py` uses `QThread + Worker` for `create_sensor`
-- `exec_command` (not `execute_command`) for SensorCommand
-- Scanner's `sensorsChanged` callback → stop scanner → connect in worker thread
-- `StateInRange` fires INSIDE `create_sensor`; emit connected right after it returns
+```bash
+bash setup.sh
+```
+
+This will:
+- Create the `brainbit_311` conda environment (Python 3.11 + all dependencies)
+- Install the `supabase` package
+- Patch the bundled SDK with the correct `libneurosdk2` v1.0.23 dylib
+
+### 4. Activate the environment
+
+```bash
+conda activate brainbit_311
+```
+
+---
+
+## Running
+
+```bash
+# Desktop EEG viewer only:
+python brainbit_viewer.py
+
+# Desktop viewer + live mobile streaming:
+python brainbit_stream.py
+```
+
+---
+
+## App flow
+
+1. Launch the app — it **auto-scans** for the BrainBit device over Bluetooth
+2. **Impedance screen** — put on the headband, wait for all four channels to turn green
+3. Click **Start EEG Recording**
+4. The **EEG signal screen** appears with 4-channel scrolling waveforms
+5. A **QR code** pops up — scan it with your phone to open the live view in the browser
+
+---
+
+## Mobile streaming setup
+
+The `brainbit_stream.py` script streams live EEG to a web app via [Supabase](https://supabase.com) (free) and [Vercel](https://vercel.com) (free).
+
+### Supabase
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Go to **SQL Editor → New Query**, paste `setup.sql` and click **Run**
+3. Collect your keys from **Settings → API Keys**
+
+| Key | Where used |
+|-----|------------|
+| Project URL | `.env` + `webapp/index.html` |
+| Publishable key | `webapp/index.html` only |
+| Secret key | `.env` only — never share publicly |
+
+### Environment file
+
+```bash
+cp .env.example .env
+# Edit .env — fill in SUPABASE_URL, SUPABASE_KEY (secret key), and WEBAPP_URL
+```
+
+### Vercel (web app)
+
+Edit `webapp/index.html` — replace the two placeholders with your Supabase **Project URL** and **Publishable key**, then deploy:
+
+```bash
+cd webapp
+npx vercel --yes
+```
+
+Copy the deployment URL (e.g. `https://webapp-abc.vercel.app`) into `WEBAPP_URL` in your `.env`.
+
+---
+
+## Signal processing
+
+```
+Raw (V)  →  × 1e6  →  µV
+         →  average re-reference (subtract mean across 4 channels per sample)
+         →  3–30 Hz Butterworth bandpass (order 6)
+         →  50 Hz IIR notch filter (Q = 30)
+         →  causal sosfilt with maintained zi (no chunk-boundary artefacts)
+```
+
+Mobile streaming downsamples from **256 Hz → 64 Hz** to keep Supabase traffic low.
+
+---
+
+## Device notes
+
+| Property | Value |
+|----------|-------|
+| Connection | Bluetooth LE |
+| Sampling rate | 256 Hz |
+| Channels | O1, O2, T3, T4 |
+| Signal units | Volts (multiplied by 1e6 for µV display) |
+| Good contact | Impedance **> 2 MΩ** (dry-electrode — higher is better) |
+| SDK | `pyneurosdk2` v1.0.15 + dylib v1.0.23 |
+
+---
+
+## Project structure
+
+```
+Brainbit_headband_practical/
+├── brainbit_viewer.py      # Desktop EEG viewer (no streaming)
+├── brainbit_stream.py      # Desktop viewer + mobile streaming
+├── webapp/
+│   ├── index.html          # Mobile web app (deployed to Vercel)
+│   └── vercel.json
+├── sdk2_lib/
+│   ├── libneurosdk2.dylib  # BrainBit native SDK v1.0.23 (macOS)
+│   └── Headers/
+├── setup.sh                # One-command environment setup
+├── setup.sql               # Supabase table + RLS configuration
+├── environment.yml         # Conda environment specification
+└── .env.example            # Environment variable template
+```
